@@ -1,149 +1,301 @@
+% ==============================================================
+% ASML_regions_parametric_FIXED.mcrl2 — Parametric 3-Region plant
+% Implements: Outside robot -> sluice; inside robot -> waiting; waiting -> stage -> waiting;
+% then waiting -> sluice (vac), vent to Atm, sluice -> outside; outside robot -> output rack.
+% ==============================================================
+
 map
-  NUM_WAFERS  : Nat;  NUM_ROBOTS  : Nat;  NUM_SLUICES : Nat;
+  NUM_WAFERS  : Nat;  NUM_SLUICES : Nat;
   NUM_FOUP_IN : Nat;  NUM_FOUP_OUT: Nat;
 eqn
-  NUM_WAFERS   = 1;  NUM_ROBOTS   = 1;  NUM_SLUICES  = 1;
-  NUM_FOUP_IN  = 1;  NUM_FOUP_OUT = 1;
+  NUM_WAFERS   = 10;      % set to 2+ as needed
+  NUM_SLUICES  = 2;      % set to 2 to match "two sluices"
+  NUM_FOUP_IN  = 10;
+  NUM_FOUP_OUT = 10;
 
 sort
-  Robot    = struct r(n:Nat);
   SluiceId = struct s(n:Nat);
-  Door     = struct inner | outer;
   Wafer    = struct w(n:Nat);
-  Loc      =
+
+  Loc =
       struct in_cell(n:Nat)
-           | sl_out(SluiceId)   % exterior side (robot side)
-           | sl_in(SluiceId)    % interior buffer
+           | sl_out(SluiceId)     % exterior landing
+           | sl_in(SluiceId)      % sluice buffer (1 slot, vacuum side)
            | waiting
            | stage
            | out_cell(n:Nat);
 
-map validRobot   : Robot    -> Bool;  validSluice  : SluiceId -> Bool;
-    validWafer   : Wafer    -> Bool;  validInCell  : Nat      -> Bool;
-    validOutCell : Nat      -> Bool;
-var k:Nat;
-eqn
-  validRobot(r(k))  = k < NUM_ROBOTS;
-  validSluice(s(k)) = k < NUM_SLUICES;
-  validWafer(w(k))  = k < NUM_WAFERS;
-  validInCell(k)    = k < NUM_FOUP_IN;
-  validOutCell(k)   = k < NUM_FOUP_OUT;
+  PMode = struct Atm | Pumping | Vac | Venting;
+
+  MOptWafer = struct none | some(Wafer);
 
 act
-  % Sluice door/pump
-  open, close : Door # SluiceId;
-  pump_cycle_start, vacuum_ready, vacuum_fault : SluiceId;
+  % Doors & pressure
+  open_inner, close_inner : SluiceId;
+  open_outer, close_outer : SluiceId;
+  start_pump_down, vacuum_achieved : SluiceId;
+  start_vent, atmosphere_achieved  : SluiceId;
+  vacuum_fault : SluiceId;
 
-  % Wafer handling
-  pick, place : Robot # Wafer # Loc;
-  transfer_in, transfer_out : Wafer # SluiceId;   % put/take through sluice
+  % Transfers (observations)
+  transfer_in, transfer_out : Wafer # SluiceId;
+  pick, place : Wafer # Loc;
 
-  % Stage
-  stage_load, proj_start, proj_end, stage_unload : Wafer;
-  clamp, unclamp;
+  % Stage / projection
+  load_stage, start_projection, end_projection, unload_stage : Wafer;
 
-  % I/O + alarm
-  entered_system, output : Wafer;
-  alarm_on : SluiceId;  alarm_off;
+  % I/O observation
+  wafer_entered_system, wafer_output : Wafer;
 
-% ---------- Static defaults (cheap, just to give initial readings)
-map inner_open, outer_open, eq_pressure, pumping_m : SluiceId -> Bool;
-    occ_sl_buf : SluiceId -> Bool;
-    where      : Wafer -> Loc;
-var sid:SluiceId; kw:Nat;
-eqn inner_open(sid)=false; outer_open(sid)=false; eq_pressure(sid)=true; pumping_m(sid)=false;
-    occ_sl_buf(sid)=false; where(w(kw)) = in_cell(kw);
+  % Alarm control
+  trigger_alarm, restart_system;
 
-% ---------- SLUICE: doors + pump + 1-slot buffer with guards that create petals
-proc Sluice(sid:SluiceId, in_open:Bool, out_open:Bool, equalised:Bool,
-            pumping:Bool, buf_occ:Bool) =
+% ----------------------------------------------
+% Helpers
+% ----------------------------------------------
+map
+  validSluice  : SluiceId -> Bool;
+  validWafer   : Wafer    -> Bool;
+  validInCell  : Nat      -> Bool;
+  validOutCell : Nat      -> Bool;
+  sid2n        : SluiceId -> Nat;
+  w2n          : Wafer    -> Nat;
 
-  % Door toggles (each creates a “petal” self-loop possibility)
-  ( !in_open && equalised && !pumping ) ->
-    ( open(inner,sid) . Sluice(sid,true ,out_open,equalised,pumping,buf_occ) ) <> delta
+var k:Nat; sid:SluiceId; wf:Wafer;
+
+eqn
+  sid2n(s(k)) = k;
+  w2n(w(k))   = k;
+
+  validSluice(sid) = sid2n(sid) < NUM_SLUICES;
+  validWafer(wf)   = w2n(wf)    < NUM_WAFERS;
+  validInCell(k)   = k < NUM_FOUP_IN;
+  validOutCell(k)  = k < NUM_FOUP_OUT;
+
+% ----------------------------------------------
+% Single-process plant with global alarm + all regions' state
+% ----------------------------------------------
+proc Plant(
+  in_open   : SluiceId -> Bool,
+  out_open  : SluiceId -> Bool,
+  mode      : SluiceId -> PMode,
+
+  % Sluice buffer (1 slot) — track occupancy + identity
+  buf_occ   : SluiceId -> Bool,
+  buf_w     : SluiceId -> MOptWafer,
+
+  % Outer port (outside landing) — identity of wafer waiting outside
+  ext_port_w: SluiceId -> MOptWafer,
+
+  % Per-wafer phase & internal state
+  phase     : Wafer    -> Nat,     % 0:not yet given to sluice (input side); 1:inside flow
+  is_waiting: Wafer    -> Bool,
+
+  % Stage state
+  stage_busy: Bool,
+  on_stage  : MOptWafer,
+
+  % Output rack and completion
+  processed : Wafer    -> Bool,
+  out_occ   : Nat      -> Bool,
+
+  % Global alarm
+  alarm     : Bool
+) =
+  % =====================
+  % ALARM: raise on fault, clear under safe conditions
+  % =====================
+  sum sid:SluiceId . (
+      validSluice(sid) && mode(sid) == Pumping && !alarm
+    ) -> vacuum_fault(sid) . trigger_alarm .
+         Plant(in_open, out_open, mode[sid->Atm],
+               buf_occ, buf_w, ext_port_w,
+               phase, is_waiting, stage_busy, on_stage, processed, out_occ, true)
 +
-  (  in_open                             ) ->
-    ( close(inner,sid). Sluice(sid,false,out_open,equalised,pumping,buf_occ) ) <> delta
+  ( alarm
+    && ( forall sid:SluiceId .
+           (validSluice(sid) => (!in_open(sid) && !out_open(sid)
+                                 && (mode(sid)==Atm || mode(sid)==Vac)))
+       )
+  ) -> restart_system .
+       Plant(in_open, out_open, mode,
+             buf_occ, buf_w, ext_port_w,
+             phase, is_waiting, stage_busy, on_stage, processed, out_occ, false)
 +
-  ( !out_open && equalised && !pumping ) ->
-    ( open(outer,sid) . Sluice(sid,in_open,true ,equalised,pumping,buf_occ) ) <> delta
+  % =====================
+  % REGION 2: Sluice control (doors/pressure)
+  % =====================
+  sum sid:SluiceId . (
+      validSluice(sid) && mode(sid) == Atm && !out_open(sid) && !in_open(sid) 
+    ) -> open_outer(sid) .
+         Plant(in_open, out_open[sid->true], mode,
+               buf_occ, buf_w, ext_port_w,
+               phase, is_waiting, stage_busy, on_stage, processed, out_occ, alarm)
 +
-  (  out_open                           ) ->
-    ( close(outer,sid). Sluice(sid,in_open,false,equalised,pumping,buf_occ) ) <> delta
+  sum sid:SluiceId . (
+      validSluice(sid) && out_open(sid) && buf_occ(sid)
+    ) -> close_outer(sid) .
+         Plant(in_open, out_open[sid->false], mode,
+               buf_occ, buf_w, ext_port_w,
+               phase, is_waiting, stage_busy, on_stage, processed, out_occ, alarm)
 +
-  % Pump cycle (both doors closed)
-  ( !in_open && !out_open && !pumping ) ->
-    ( pump_cycle_start(sid) . Sluice(sid,in_open,out_open,false,true,buf_occ) ) <> delta
+  sum sid:SluiceId . (
+      validSluice(sid) && mode(sid) == Vac && !in_open(sid) && !out_open(sid) 
+    ) -> open_inner(sid) .
+         Plant(in_open[sid->true], out_open, mode,
+               buf_occ, buf_w, ext_port_w,
+               phase, is_waiting, stage_busy, on_stage, processed, out_occ, alarm)
 +
-  ( pumping ) ->
-    ( vacuum_ready(sid) . Sluice(sid,in_open,out_open,true,false,buf_occ) ) <> delta
+  sum sid:SluiceId . (
+      validSluice(sid) && in_open(sid) && buf_occ(sid)
+    ) -> close_inner(sid) .
+         Plant(in_open[sid->false], out_open, mode,
+               buf_occ, buf_w, ext_port_w,
+               phase, is_waiting, stage_busy, on_stage, processed, out_occ, alarm)
 +
-  % “Put into sluice” (outer door open, inner closed)
-  ( out_open && !in_open && !pumping && !buf_occ ) ->
-    ( transfer_in(w(0),sid) . Sluice(sid,in_open,out_open,equalised,pumping,true) ) <> delta
+  % Pump down: Atm -> Pumping -> Vac (sealed)
+  sum sid:SluiceId . (
+      validSluice(sid) && !in_open(sid) && !out_open(sid) && mode(sid) == Atm  && buf_occ(sid) && !alarm 
+    ) -> start_pump_down(sid) .
+         Plant(in_open, out_open, mode[sid->Pumping],
+               buf_occ, buf_w, ext_port_w,
+               phase, is_waiting, stage_busy, on_stage, processed, out_occ, alarm)
 +
-  % “Take from sluice” (inner door open, outer closed)
-  ( in_open && !out_open && !pumping &&  buf_occ ) ->
-    ( transfer_out(w(0),sid) . Sluice(sid,in_open,out_open,equalised,pumping,false) ) <> delta
+  sum sid:SluiceId . (
+      validSluice(sid) && mode(sid) == Pumping 
+    ) -> vacuum_achieved(sid) .
+         Plant(in_open, out_open, mode[sid->Vac],
+               buf_occ, buf_w, ext_port_w,
+               phase, is_waiting, stage_busy, on_stage, processed, out_occ, alarm)
 +
-  % Optional fault -> alarm (kept simple)
-  vacuum_fault(sid) . alarm_on(sid) . Sluice(sid,in_open,out_open,equalised,pumping,buf_occ)
+  % Vent: Vac -> Venting -> Atm (sealed)
+  sum sid:SluiceId . (
+      validSluice(sid) && !in_open(sid) && !out_open(sid) && mode(sid) == Vac 
+    ) -> start_vent(sid) .
+         Plant(in_open, out_open, mode[sid->Venting],
+               buf_occ, buf_w, ext_port_w,
+               phase, is_waiting, stage_busy, on_stage, processed, out_occ, alarm)
++
+  sum sid:SluiceId . (
+      validSluice(sid) && mode(sid) == Venting 
+    ) -> atmosphere_achieved(sid) .
+         Plant(in_open, out_open, mode[sid->Atm],
+               buf_occ, buf_w, ext_port_w,
+               phase, is_waiting, stage_busy, on_stage, processed, out_occ, alarm)
++
+  % =====================
+  % REGION 2 <-> REGION 1/3 transfers with identity
+  % =====================
+  % (A) Outside -> buffer (input): requires wafer at outer port and empty buffer
+  sum sid:SluiceId, i:Nat . (
+      validSluice(sid) && i < NUM_WAFERS && validWafer(w(i)) &&
+      out_open(sid) && !in_open(sid) && mode(sid) == Atm && !buf_occ(sid)  &&
+      ext_port_w(sid) == some(w(i)) 
+    ) -> transfer_in(w(i), sid) . place(w(i), sl_in(sid)) .
+         Plant(in_open, out_open, mode,
+               buf_occ[sid->true], buf_w[sid->some(w(i))], ext_port_w[sid->none],
+               phase[ w(i) -> 1 ], is_waiting, stage_busy, on_stage, processed, out_occ, alarm)
++
+  % (B) Buffer -> inside waiting (vacuum side)
+  sum sid:SluiceId, i:Nat . (
+      validSluice(sid) && i < NUM_WAFERS && validWafer(w(i)) &&
+      in_open(sid) && !out_open(sid) && mode(sid) == Vac && buf_occ(sid) && !alarm &&
+      buf_w(sid) == some(w(i)) && !is_waiting(w(i))
+    ) -> transfer_out(w(i), sid) . place(w(i), waiting) .
+         Plant(in_open, out_open, mode,
+               buf_occ[sid->false], buf_w[sid->none], ext_port_w,
+               phase, is_waiting[ w(i) -> true ], stage_busy, on_stage, processed, out_occ, alarm)
++
+  % (C) Inside waiting -> buffer (vacuum side) for output path
+  sum sid:SluiceId, i:Nat . (
+      validSluice(sid) && i < NUM_WAFERS && validWafer(w(i)) &&
+      in_open(sid) && !out_open(sid) && mode(sid) == Vac && !buf_occ(sid) && !alarm &&
+      is_waiting(w(i)) && processed(w(i)) 
+    ) -> transfer_in(w(i), sid) . place(w(i), sl_in(sid)) .
+         Plant(in_open, out_open, mode,
+               buf_occ[sid->true], buf_w[sid->some(w(i))], ext_port_w,
+               phase, is_waiting[ w(i) -> false ], stage_busy, on_stage, processed, out_occ, alarm)
++
+  % (D) Buffer -> outside (atmosphere side) to hand to outside robot
+  sum sid:SluiceId, i:Nat . (
+      validSluice(sid) && i < NUM_WAFERS && validWafer(w(i)) &&
+      out_open(sid) && !in_open(sid) && mode(sid) == Atm && buf_occ(sid)  &&
+      buf_w(sid) == some(w(i)) && processed(w(i)) 
+    ) -> transfer_out(w(i), sid) . place(w(i), sl_out(sid)) .
+         Plant(in_open, out_open, mode,
+               buf_occ[sid->false], buf_w[sid->none], ext_port_w[sid->some(w(i))],
+               phase, is_waiting, stage_busy, on_stage, processed, out_occ, alarm)
++
+  % =====================
+  % REGION 1: Outside robot (input and final output)
+  % =====================
+  % Input: pick from input FOUP and place at chosen sluice outer port
+  sum i:Nat, sid:SluiceId . (
+      i < NUM_WAFERS && validInCell(i) && validSluice(sid) && !alarm && phase(w(i)) == 0 && ext_port_w(sid) == none  
+    ) -> pick(w(i), in_cell(i)) . wafer_entered_system(w(i)) .
+         place(w(i), sl_out(sid)) .
+         Plant(in_open, out_open, mode,
+               buf_occ, buf_w, ext_port_w[sid->some(w(i))],
+               phase[ w(i) -> 1 ], is_waiting, stage_busy, on_stage, processed, out_occ, alarm)
++
+  % Output: pick from sluice outer port and place to an output rack cell
+  sum sid:SluiceId, i:Nat, oc:Nat . (
+      validSluice(sid) && i < NUM_WAFERS && validWafer(w(i)) &&
+      validOutCell(oc) && !out_occ(oc) && !alarm &&
+      ext_port_w(sid) == some(w(i)) && processed(w(i))
+    ) -> pick(w(i), sl_out(sid)) . place(w(i), out_cell(oc)) . wafer_output(w(i)) .
+         Plant(in_open, out_open, mode,
+               buf_occ, buf_w, ext_port_w[sid->none],
+               phase, is_waiting, stage_busy, on_stage,
+               processed[ w(i) -> true ], out_occ[ oc -> true ], alarm)
++
+  % =====================
+  % REGION 3: Internal (waiting + single stage) — stage returns to waiting
+  % =====================
+  % Load stage and run projection if free
+  sum i:Nat . (
+      i < NUM_WAFERS && is_waiting(w(i)) && !stage_busy && !alarm && !processed(w(i))
+    ) -> load_stage(w(i)) . start_projection(w(i)) . end_projection(w(i)) .
+         Plant(in_open, out_open, mode,
+               buf_occ, buf_w, ext_port_w,
+               phase, is_waiting[ w(i) -> false ], true, some(w(i)),
+                processed[ w(i) -> true ], out_occ, alarm)
++
+  % Unload stage: back to waiting (not straight to output)
+  sum i:Nat . (
+      i < NUM_WAFERS && on_stage == some(w(i)) && !alarm
+    ) -> unload_stage(w(i)) . place(w(i), waiting) .
+         Plant(in_open, out_open, mode,
+               buf_occ, buf_w, ext_port_w,
+               phase, is_waiting[ w(i) -> true ], false, none,
+               processed, out_occ, alarm)
++
+  % =====================
+  % Idle step
+  % =====================
+  tau . Plant(in_open, out_open, mode,
+              buf_occ, buf_w, ext_port_w,
+              phase, is_waiting, stage_busy, on_stage, processed, out_occ, alarm)
 ;
 
-% ---------- STAGE: one-slot process with its own petals
-proc Stage(occ:Bool, clamped:Bool, done:Bool) =
-  ( !occ )                  -> ( stage_load(w(0)) . Stage(true,false,false) ) <> delta
-+
-  ( occ && !clamped )       -> ( clamp . Stage(true,true,done) ) <> delta
-+
-  ( occ && clamped && !done )->( proj_start(w(0)) . proj_end(w(0)) . Stage(true,true,true) ) <> delta
-+
-  ( occ && clamped && done )-> ( unclamp . Stage(true,false,done) ) <> delta
-+
-  ( occ && !clamped && done )->( stage_unload(w(0)) . Stage(false,false,false) ) <> delta
-;
+init
+  Plant(
+    lambda sid:SluiceId . false,             % in_open
+    lambda sid:SluiceId . false,             % out_open
+    lambda sid:SluiceId . Atm,               % mode
 
-% ---------- ROBOT: now concurrent, interacts with sluice & stage
-% phases:
-% 0 pick in_cell(0)  -> sl_out
-% 1 transfer_in via sluice (Sluice must allow it) [Robot waits by placing at sl_out]
-% 2 after transfer_out, place to stage
-% 3 after stage cycle, place to out_cell(0) -> output
-proc Robot(rb:Robot, phase:Nat) =
-  ( phase == 0 ) ->
-    ( pick(rb,w(0),in_cell(0)) . entered_system(w(0)) .
-      place(rb,w(0),sl_out(s(0))) .
-      Robot(rb,1) ) <> delta
-+
-  % Robot asks the sluice to accept wafer (will only succeed when outer door open etc.)
-  ( phase == 1 ) ->
-    ( transfer_in(w(0),s(0)) .
-      Robot(rb,2) ) <> delta
-+
-  % Robot retrieves wafer from inside (requires inner door open etc.)
-  ( phase == 2 ) ->
-    ( transfer_out(w(0),s(0)) .
-      place(rb,w(0),stage) .
-      Robot(rb,3) ) <> delta
-+
-  ( phase == 3 ) ->
-    ( place(rb,w(0),out_cell(0)) . output(w(0)) .
-      Robot(rb,3) ) <> delta
-;
+    lambda sid:SluiceId . false,             % buf_occ
+    lambda sid:SluiceId . none,              % buf_w
+    lambda sid:SluiceId . none,              % ext_port_w
 
-% ---------- ALARM (passive unless a fault occurs)
-proc Alarm = alarm_off . Alarm + delta;
+    lambda wf:Wafer    . 0,                  % phase
+    lambda wf:Wafer    . false,              % is_waiting
 
+    false,                                   % stage_busy
+    none,                                    % on_stage
 
-% ---------- SYSTEM: three components in parallel (causes the interleavings)
-proc System =
-  Sluice(s(0), false,false, true,false, false)
-  || Stage(false,false,false)
-  || Robot(r(0),0)
-  || Alarm;
+    lambda wf:Wafer    . false,              % processed
+    lambda k:Nat       . false,              % out_occ
 
-init allow(
-  { open,close,pump_cycle_start,vacuum_ready,vacuum_fault,
-    pick,place,transfer_in,transfer_out,
-    stage_load,clamp,proj_start,proj_end,stage_unload,
-    entered_system,output,alarm_on,alarm_off }, System);
+    false                                    % alarm
+  );
