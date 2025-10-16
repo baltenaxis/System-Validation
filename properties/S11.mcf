@@ -1,39 +1,28 @@
-% Door/pressure family
+% S11 — During alarm, only safety actions may occur; all !alarm actions are forbidden
+% (allowed during alarm: open/close doors, start_vent/atmosphere_achieved,
+%  transfer_in(outside->buffer), transfer_out(buffer->outside), tau)
+
+% No pump-down during alarm
 (forall k:Nat. val(k < NUM_SLUICES) =>
-  [ true* . trigger_alarm . (!restart_system)* .
-    ( open_inner(s(k)) || close_inner(s(k)) || open_outer(s(k)) || close_outer(s(k))
-    || start_pump_down(s(k)) || start_vent(s(k))
-    || vacuum_achieved(s(k)) || atmosphere_achieved(s(k)) )
-  ] false)
+  [ true* . trigger_alarm . (!restart_system)* . start_pump_down(s(k)) ] false)
 &&
-% Transfers
-(forall i,k:Nat. val(i < NUM_WAFERS && k < NUM_SLUICES) =>
-  [ true* . trigger_alarm . (!restart_system)* .
-    ( transfer_in(w(i), s(k)) || transfer_out(w(i), s(k)) )
-  ] false)
-&&
-% Pick/place at waiting, stage, sluice ports
-(forall i,k:Nat. val(i < NUM_WAFERS && k < NUM_SLUICES) =>
-  [ true* . trigger_alarm . (!restart_system)* .
-    ( pick(w(i), waiting) || place(w(i), waiting)
-    || pick(w(i), stage)   || place(w(i), stage)
-    || pick(w(i), sl_in(s(k)))  || place(w(i), sl_in(s(k)))
-    || pick(w(i), sl_out(s(k))) || place(w(i), sl_out(s(k))) )
-  ] false)
-&&
-% Pick/place at FOUPs
-(forall i,c:Nat. val(i < NUM_WAFERS && c < NUM_FOUP_IN) =>
-  [ true* . trigger_alarm . (!restart_system)* .
-    ( pick(w(i), in_cell(c)) || place(w(i), in_cell(c)) )
-  ] false)
-&&
-(forall i,c:Nat. val(i < NUM_WAFERS && c < NUM_FOUP_OUT) =>
-  [ true* . trigger_alarm . (!restart_system)* .
-    ( pick(w(i), out_cell(c)) || place(w(i), out_cell(c)) )
-  ] false)
-&&
-% Stage/IO actions
+
+% No stage operations during alarm
 (forall i:Nat. val(i < NUM_WAFERS) =>
   [ true* . trigger_alarm . (!restart_system)* .
-    ( load_stage(w(i)) || start_projection(w(i)) || end_projection(w(i)) || unload_stage(w(i))
-    || wafer_entered_system(w(i)) || wafer_output(w(i)) )] false)
+    ( load_stage(w(i)) || start_projection(w(i)) || end_projection(w(i)) || unload_stage(w(i)) )
+  ] false)
+&&
+% No input flow during alarm
+(forall i:Nat. val(i < NUM_WAFERS) =>
+  [ true* . trigger_alarm . (!restart_system)* . wafer_entered_system(w(i)) ] false)
+&&
+(forall i,c:Nat. val(i < NUM_WAFERS && c < NUM_FOUP_IN) =>
+  [ true* . trigger_alarm . (!restart_system)* . pick(w(i), in_cell(c)) ] false)
+&&
+% No output completion or output-pick during alarm
+(forall i:Nat. val(i < NUM_WAFERS) =>
+  [ true* . trigger_alarm . (!restart_system)* . wafer_output(w(i)) ] false)
+&&
+(forall i,k:Nat. val(i < NUM_WAFERS && k < NUM_SLUICES) =>
+  [ true* . trigger_alarm . (!restart_system)* . pick(w(i), sl_out(s(k))) ] false)

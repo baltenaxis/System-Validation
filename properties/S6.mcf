@@ -1,3 +1,6 @@
-forall i,j,k:Nat.
-  val(i < NUM_WAFERS && j < NUM_WAFERS && k < NUM_SLUICES) =>
-  [ true* . transfer_in(w(i), s(k)) . (!transfer_out(w(j), s(k)))* . transfer_in(w(j), s(k)) ] false
+forall k:Nat. val(k < NUM_SLUICES) =>
+  [ true* .
+    (exists i:Nat . val(i < NUM_WAFERS) && transfer_in(w(i), s(k))) .
+    ( ! (exists j:Nat . val(j < NUM_WAFERS) && transfer_out(w(j), s(k))) )* .
+    (exists h:Nat . val(h < NUM_WAFERS) && transfer_in(w(h), s(k)))
+  ] false
