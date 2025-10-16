@@ -1,0 +1,1 @@
+forall i:Nat.( val(i < NUM_WAFERS)=> [ true* . (!wafer_output(w(i)))* ] <true> true )

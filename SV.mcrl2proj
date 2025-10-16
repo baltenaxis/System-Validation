@@ -1,6 +1,10 @@
 <root>
  <spec>SV_spec.mcrl2</spec>
- <properties/>
+ <properties>
+  <property>S1</property>
+  <property>S2</property>
+  <property>deadlock</property>
+ </properties>
  <jittyc>false</jittyc>
  <linearisation_method>regular</linearisation_method>
  <enumeration_limit>0</enumeration_limit>

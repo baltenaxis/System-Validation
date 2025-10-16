@@ -1,0 +1,5 @@
+forall sid:SluiceId.
+  [ true* . (!vacuum_achieved(sid))* . open_inner(sid) ] false
+&&
+forall sid:SluiceId.
+  [ true* . (!atmosphere_achieved(sid))* . open_outer(sid) ] false

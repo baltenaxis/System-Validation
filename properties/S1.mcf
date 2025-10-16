@@ -1,0 +1,5 @@
+forall sid:SluiceId.
+  [ true* . open_outer(sid) . (!close_outer(sid))* . open_inner(sid) ] false
+&&
+forall sid:SluiceId.
+  [ true* . open_inner(sid) . (!close_inner(sid))* . open_outer(sid) ] false

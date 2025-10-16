@@ -10,8 +10,8 @@ map
 eqn
   NUM_WAFERS   = 10;      % set to 2+ as needed
   NUM_SLUICES  = 2;      % set to 2 to match "two sluices"
-  NUM_FOUP_IN  = 10;
-  NUM_FOUP_OUT = 10;
+  NUM_FOUP_IN  = 2;
+  NUM_FOUP_OUT = 2;
 
 sort
   SluiceId = struct s(n:Nat);
@@ -220,7 +220,7 @@ proc Plant(
   sum sid:SluiceId, i:Nat . (
       validSluice(sid) && i < NUM_WAFERS && validWafer(w(i)) &&
       out_open(sid) && !in_open(sid) && mode(sid) == Atm && buf_occ(sid)  &&
-      buf_w(sid) == some(w(i)) && processed(w(i)) 
+      buf_w(sid) == some(w(i)) && processed(w(i)) && buf_w(sid) != some(w(i))
     ) -> transfer_out(w(i), sid) . place(w(i), sl_out(sid)) .
          Plant(in_open, out_open, mode,
                buf_occ[sid->false], buf_w[sid->none], ext_port_w[sid->some(w(i))],
@@ -269,13 +269,7 @@ proc Plant(
                buf_occ, buf_w, ext_port_w,
                phase, is_waiting[ w(i) -> true ], false, none,
                processed, out_occ, alarm)
-+
-  % =====================
-  % Idle step
-  % =====================
-  tau . Plant(in_open, out_open, mode,
-              buf_occ, buf_w, ext_port_w,
-              phase, is_waiting, stage_busy, on_stage, processed, out_occ, alarm)
+
 ;
 
 init
