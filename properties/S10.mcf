@@ -1,0 +1,2 @@
+forall i:Nat. val(i < NUM_WAFERS) =>
+  [ true* . (!end_projection(w(i)))* . wafer_output(w(i)) ] false

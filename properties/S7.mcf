@@ -1,0 +1,3 @@
+forall i,j,h:Nat.
+  val(i < NUM_WAFERS && j < NUM_WAFERS && h < NUM_WAFERS) =>
+  [ true* . load_stage(w(i)) . (!unload_stage(w(h)))* . load_stage(w(j)) ] false

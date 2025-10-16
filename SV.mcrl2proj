@@ -4,6 +4,17 @@
   <property>S1</property>
   <property>S2</property>
   <property>deadlock</property>
+  <property>S3</property>
+  <property>S4</property>
+  <property>S5</property>
+  <property>S6</property>
+  <property>S7</property>
+  <property>S8</property>
+  <property>S9</property>
+  <property>S10</property>
+  <property>S11</property>
+  <property>S12</property>
+  <property>L1</property>
  </properties>
  <jittyc>false</jittyc>
  <linearisation_method>regular</linearisation_method>

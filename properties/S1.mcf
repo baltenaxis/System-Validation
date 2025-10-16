@@ -1,5 +1,6 @@
-forall sid:SluiceId.
-  [ true* . open_outer(sid) . (!close_outer(sid))* . open_inner(sid) ] false
+% S1 — Air-lock safety (bounded over sluices)
+forall k:Nat. val(k < NUM_SLUICES) =>
+  [ true* . open_outer(s(k)) . (!close_outer(s(k)))* . open_inner(s(k)) ] false
 &&
-forall sid:SluiceId.
-  [ true* . open_inner(sid) . (!close_inner(sid))* . open_outer(sid) ] false
+forall k:Nat. val(k < NUM_SLUICES) =>
+  [ true* . open_inner(s(k)) . (!close_inner(s(k)))* . open_outer(s(k)) ] false

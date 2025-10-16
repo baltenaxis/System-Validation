@@ -8,7 +8,7 @@ map
   NUM_WAFERS  : Nat;  NUM_SLUICES : Nat;
   NUM_FOUP_IN : Nat;  NUM_FOUP_OUT: Nat;
 eqn
-  NUM_WAFERS   = 10;      % set to 2+ as needed
+  NUM_WAFERS   = 2;      % set to 2+ as needed
   NUM_SLUICES  = 2;      % set to 2 to match "two sluices"
   NUM_FOUP_IN  = 2;
   NUM_FOUP_OUT = 2;

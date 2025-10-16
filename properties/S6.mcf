@@ -1,0 +1,3 @@
+forall i,j,k:Nat.
+  val(i < NUM_WAFERS && j < NUM_WAFERS && k < NUM_SLUICES) =>
+  [ true* . transfer_in(w(i), s(k)) . (!transfer_out(w(j), s(k)))* . transfer_in(w(j), s(k)) ] false

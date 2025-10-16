@@ -1,5 +1,5 @@
-forall sid:SluiceId.
-  [ true* . (!vacuum_achieved(sid))* . open_inner(sid) ] false
+forall k:Nat. val(k < NUM_SLUICES) =>
+  [ true* . (!vacuum_achieved(s(k)))* . open_inner(s(k)) ] false
 &&
-forall sid:SluiceId.
-  [ true* . (!atmosphere_achieved(sid))* . open_outer(sid) ] false
+forall k:Nat. val(k < NUM_SLUICES) =>
+  [ true* . (!atmosphere_achieved(s(k)))* . open_outer(s(k)) ] false

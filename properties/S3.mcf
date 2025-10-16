@@ -1,0 +1,29 @@
+% sluice buffer (vac side)
+(forall i,j,k:Nat.
+  val(i < NUM_WAFERS && j < NUM_WAFERS && i != j && k < NUM_SLUICES) =>
+  [ true* . place(w(i), sl_in(s(k))) . (!pick(w(j), sl_in(s(k))))* . place(w(j), sl_in(s(k))) ] false)
+&&
+% outside landing
+(forall i,j,k:Nat.
+  val(i < NUM_WAFERS && j < NUM_WAFERS && i != j && k < NUM_SLUICES) =>
+  [ true* . place(w(i), sl_out(s(k))) . (!pick(w(j), sl_out(s(k))))* . place(w(j), sl_out(s(k))) ] false)
+&&
+% waiting
+(forall i,j:Nat.
+  val(i < NUM_WAFERS && j < NUM_WAFERS && i != j) =>
+  [ true* . place(w(i), waiting) . (!pick(w(j), waiting))* . place(w(j), waiting) ] false)
+&&
+% stage
+(forall i,j:Nat.
+  val(i < NUM_WAFERS && j < NUM_WAFERS && i != j) =>
+  [ true* . place(w(i), stage) . (!pick(w(j), stage))* . place(w(j), stage) ] false)
+&&
+% input FOUP cells
+(forall i,j,c:Nat.
+  val(i < NUM_WAFERS && j < NUM_WAFERS && i != j && c < NUM_FOUP_IN) =>
+  [ true* . place(w(i), in_cell(c)) . (!pick(w(j), in_cell(c)))* . place(w(j), in_cell(c)) ] false)
+&&
+% output rack cells
+(forall i,j,c:Nat.
+  val(i < NUM_WAFERS && j < NUM_WAFERS && i != j && c < NUM_FOUP_OUT) =>
+  [ true* . place(w(i), out_cell(c)) . (!pick(w(j), out_cell(c)))* . place(w(j), out_cell(c)) ] false)

@@ -1,0 +1,11 @@
+forall k:Nat. val(k < NUM_SLUICES) =>
+  [ true* . (!close_inner(s(k)))* . start_pump_down(s(k)) ] false
+&&
+forall k:Nat. val(k < NUM_SLUICES) =>
+  [ true* . (!close_outer(s(k)))* . start_pump_down(s(k)) ] false
+&&
+forall k:Nat. val(k < NUM_SLUICES) =>
+  [ true* . start_pump_down(s(k)) . (!vacuum_achieved(s(k)))* . open_inner(s(k)) ] false
+&&
+forall k:Nat. val(k < NUM_SLUICES) =>
+  [ true* . start_pump_down(s(k)) . (!vacuum_achieved(s(k)))* . open_outer(s(k)) ] false
