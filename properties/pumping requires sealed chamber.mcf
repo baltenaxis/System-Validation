@@ -1,0 +1,4 @@
+% SI-2: Pumping requires both doors closed (state-based check)
+forall sid:SluiceId. val(validSluice(sid)) =>
+  [ true* . open_inner(sid) . (!close_inner(sid))* . start_pump_down(sid) ] false &&
+  [ true* . open_outer(sid) . (!close_outer(sid))* . start_pump_down(sid) ] false

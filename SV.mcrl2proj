@@ -26,10 +26,10 @@
   <property>Can place to output rack</property>
   <property>Can distribute wafers across sluices</property>
   <property>Both doors never open simultaneously</property>
-  <property>Cannot pump with doors open</property>
   <property>Stage processes one wafer at a time</property>
   <property>Alarm blocks critical operations</property>
   <property>System can recover from alarm</property>
+  <property>pumping requires sealed chamber</property>
  </properties>
  <jittyc>false</jittyc>
  <linearisation_method>regular</linearisation_method>

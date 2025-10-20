@@ -220,7 +220,8 @@ proc Plant(
   sum sid:SluiceId, i:Nat . (
       validSluice(sid) && i < NUM_WAFERS && validWafer(w(i)) &&
       out_open(sid) && !in_open(sid) && mode(sid) == Atm && buf_occ(sid)  &&
-      buf_w(sid) == some(w(i)) && processed(w(i)) && buf_w(sid) != some(w(i))
+      buf_w(sid) == some(w(i)) && processed(w(i)) 
+%&& buf_w(sid) != some(w(i))
     ) -> transfer_out(w(i), sid) . place(w(i), sl_out(sid)) .
          Plant(in_open, out_open, mode,
                buf_occ[sid->false], buf_w[sid->none], ext_port_w[sid->some(w(i))],

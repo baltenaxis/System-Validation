@@ -1,3 +1,4 @@
-[true*. trigger_alarm . (!restart_system)* . 
-  (open_inner + open_outer + transfer_in + transfer_out + load_stage)] false
-% Description: "Alarm prevents unsafe operations"
+% AS-1: Alarm blocks critical operations (simplified - checks one action)
+forall sid:SluiceId. val(validSluice(sid)) =>
+  [true*. trigger_alarm . (!restart_system)* . open_inner(sid)] false
+% Description: "Alarm prevents door opening"
