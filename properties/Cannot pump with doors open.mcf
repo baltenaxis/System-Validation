@@ -1,0 +1,5 @@
+[true*] forall sid:SluiceId. val(validSluice(sid)) =>
+  [ (open_inner(sid) + open_outer(sid)) . 
+    (!(close_inner(sid) + close_outer(sid)))* . 
+    start_pump_down(sid) ] false
+% Description: "Pumping requires sealed chamber"

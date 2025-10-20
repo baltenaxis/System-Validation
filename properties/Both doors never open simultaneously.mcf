@@ -1,0 +1,4 @@
+[true*] forall sid:SluiceId. val(validSluice(sid)) =>
+  [ open_inner(sid) . (!close_inner(sid))* . open_outer(sid) ] false &&
+  [ open_outer(sid) . (!close_outer(sid))* . open_inner(sid) ] false
+% Description: "Door interlock safety"

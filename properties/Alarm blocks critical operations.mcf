@@ -1,0 +1,3 @@
+[true*. trigger_alarm . (!restart_system)* . 
+  (open_inner + open_outer + transfer_in + transfer_out + load_stage)] false
+% Description: "Alarm prevents unsafe operations"
