@@ -15,6 +15,7 @@
   <property>S11</property>
   <property>S12</property>
   <property>L1</property>
+  <property>Alarm blocking capacity</property>
  </properties>
  <jittyc>false</jittyc>
  <linearisation_method>regular</linearisation_method>
