@@ -15,6 +15,8 @@
   <property>S11</property>
   <property>S12</property>
   <property>L1</property>
+  <property>Output checking</property>
+  <property>door closing</property>
  </properties>
  <jittyc>false</jittyc>
  <linearisation_method>regular</linearisation_method>
