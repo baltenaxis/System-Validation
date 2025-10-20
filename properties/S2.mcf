@@ -1,9 +1,0 @@
-forall k:Nat. val(k < NUM_SLUICES) =>
-  [true* . start_vent(s(k)) . 
-   (!(vacuum_achieved(s(k)) || trigger_alarm))* . 
-   open_inner(s(k))] false
-&&
-forall k:Nat. val(k < NUM_SLUICES) =>
-  [true* . start_pump_down(s(k)) . 
-   (!(atmosphere_achieved(s(k)) || trigger_alarm))* . 
-   open_outer(s(k))] false

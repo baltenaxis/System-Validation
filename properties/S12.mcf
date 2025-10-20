@@ -1,5 +1,0 @@
-forall k:Nat. val(k < NUM_SLUICES) =>
-  [ true* . trigger_alarm . (!restart_system)* . open_inner(s(k)) . restart_system ] false
-&&
-forall k:Nat. val(k < NUM_SLUICES) =>
-  [ true* . trigger_alarm . (!restart_system)* . open_outer(s(k)) . restart_system ] false

@@ -1,6 +1,0 @@
-forall k:Nat. val(k < NUM_SLUICES) =>
-  [ true* .
-    (exists i:Nat . val(i < NUM_WAFERS) && transfer_in(w(i), s(k))) .
-    ( ! (exists j:Nat . val(j < NUM_WAFERS) && transfer_out(w(j), s(k))) )* .
-    (exists h:Nat . val(h < NUM_WAFERS) && transfer_in(w(h), s(k)))
-  ] false

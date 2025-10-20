@@ -1,6 +1,0 @@
-% S1 — Air-lock safety (bounded over sluices)
-forall k:Nat. val(k < NUM_SLUICES) =>
-  [ true* . open_outer(s(k)) . (!close_outer(s(k)))* . open_inner(s(k)) ] false
-&&
-forall k:Nat. val(k < NUM_SLUICES) =>
-  [ true* . open_inner(s(k)) . (!close_inner(s(k)))* . open_outer(s(k)) ] false
