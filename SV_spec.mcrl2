@@ -126,7 +126,7 @@ proc Plant(
   % REGION 2: Sluice control (doors/pressure)
   % =====================
   sum sid:SluiceId . (
-      validSluice(sid) && mode(sid) == Atm && !out_open(sid) && !in_open(sid) 
+      validSluice(sid) && mode(sid) == Atm && !out_open(sid) && !in_open(sid) && !alarm
     ) -> open_outer(sid) .
          Plant(in_open, out_open[sid->true], mode,
                buf_occ, buf_w, ext_port_w,
@@ -140,7 +140,7 @@ proc Plant(
                phase, is_waiting, stage_busy, on_stage, processed, out_occ, alarm)
 +
   sum sid:SluiceId . (
-      validSluice(sid) && mode(sid) == Vac && !in_open(sid) && !out_open(sid) 
+      validSluice(sid) && mode(sid) == Vac && !in_open(sid) && !out_open(sid) && !alarm
     ) -> open_inner(sid) .
          Plant(in_open[sid->true], out_open, mode,
                buf_occ, buf_w, ext_port_w,
