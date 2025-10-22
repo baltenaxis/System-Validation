@@ -1,0 +1,2 @@
+% S11b - Alarm stops stage
+[true* . trigger_alarm . (!restart_system)* . load_stage(w(0))]false

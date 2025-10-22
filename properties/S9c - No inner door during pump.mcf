@@ -1,0 +1,2 @@
+% S9c - No inner door during pump
+[true* . start_pump_down(s(0)) . (!vacuum_achieved(s(0)))* . open_inner(s(0))]false

@@ -1,0 +1,2 @@
+% S6 - Sluice capacity constraint
+[true* . transfer_in(w(0), s(0)) . (!transfer_out(w(0), s(0)) && !transfer_out(w(1), s(0)))* . transfer_in(w(1), s(0))]false

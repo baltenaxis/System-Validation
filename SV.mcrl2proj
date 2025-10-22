@@ -20,6 +20,21 @@
   <property>outer door stuck test</property>
   <property>Can pump empty sluice</property>
   <property>Cannot open inner door without vacuum_achieved</property>
+  <property>S2b - Outer door pressure check</property>
+  <property>S3 - No overfill waiting area</property>
+  <property>S4a - No transfer through closed outer door</property>
+  <property>S4b - No transfer through closed inner door</property>
+  <property>S5 - Unique location constraint</property>
+  <property>S6 - Sluice capacity constraint</property>
+  <property>S8 - Robot collision avoidance</property>
+  <property>S9a - Pump needs inner door closed</property>
+  <property>S9b - Pump needs outer door closed</property>
+  <property>S9c - No inner door during pump</property>
+  <property>S9d - No outer door during pump</property>
+  <property>S11a - Alarm stops outer door</property>
+  <property>S11b - Alarm stops stage</property>
+  <property>S11c - Alarm stops pumping</property>
+  <property>Deadlock freedom</property>
  </properties>
  <jittyc>false</jittyc>
  <linearisation_method>regular</linearisation_method>

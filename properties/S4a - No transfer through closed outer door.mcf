@@ -1,0 +1,3 @@
+% S4a - No transfer through closed outer door
+
+[true* . close_outer(s(0)) . (!open_outer(s(0)))* . transfer_in(w(0), s(0))]false

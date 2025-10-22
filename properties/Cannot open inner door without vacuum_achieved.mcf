@@ -1,1 +1,3 @@
-[true* . (!vacuum_achieved(s(0)))* . open_inner(s(0))]false
+% NEW Property 5: Inner door only opens in vacuum mode
+forall sid:SluiceId. val(validSluice(sid)) =>
+  [true* . start_vent(sid) . (!start_pump_down(sid))* . open_inner(sid)]false

@@ -1,0 +1,2 @@
+% S8 - Robot collision avoidance
+[true* . pick(w(0), out_cell(0)) . (!place(w(0), out_cell(0)))* . pick(w(1), out_cell(0))]false

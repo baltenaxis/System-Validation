@@ -1,0 +1,3 @@
+% S4b - No transfer through closed inner door  
+% Check after closing door, must open before transfer
+[true* . close_inner(s(0)) . (!open_inner(s(0)))* . transfer_out(w(0), s(0))]false

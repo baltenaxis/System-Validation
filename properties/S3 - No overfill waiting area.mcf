@@ -1,0 +1,5 @@
+% S3 - No overfill waiting area  
+
+% Check: Cannot place second wafer in waiting while first is still there (not loaded to stage)
+forall i:Nat, j:Nat. val(i < NUM_WAFERS && j < NUM_WAFERS && i != j) =>
+  [true* . place(w(i), waiting) . (!load_stage(w(i)))* . place(w(j), waiting)]false
