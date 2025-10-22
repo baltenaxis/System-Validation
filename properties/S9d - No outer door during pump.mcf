@@ -1,3 +1,1 @@
-% S9d - No outer door during pump
-
 [true* . start_pump_down(s(0)) . (!vacuum_achieved(s(0)))* . open_outer(s(0))]false
