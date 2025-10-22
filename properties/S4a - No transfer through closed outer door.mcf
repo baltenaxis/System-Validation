@@ -1,3 +1,4 @@
 % S4a - No transfer through closed outer door
-
-[true* . close_outer(s(0)) . (!open_outer(s(0)))* . transfer_in(w(0), s(0))]true
+% Must have open_outer before any transfer_in
+forall sid:SluiceId, i:Nat. val(validSluice(sid) && i < NUM_WAFERS) =>
+  [(!open_outer(sid))* . transfer_in(w(i), sid)]false
