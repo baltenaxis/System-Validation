@@ -1,0 +1,1 @@
+[true* . (!vacuum_achieved(s(0)))* . open_inner(s(0))]false

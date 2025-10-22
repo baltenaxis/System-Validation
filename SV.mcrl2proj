@@ -17,6 +17,9 @@
   <property>Alarm blocks critical operations</property>
   <property>System can recover from alarm</property>
   <property>pumping requires sealed chamber</property>
+  <property>outer door stuck test</property>
+  <property>Can pump empty sluice</property>
+  <property>Cannot open inner door without vacuum_achieved</property>
  </properties>
  <jittyc>false</jittyc>
  <linearisation_method>regular</linearisation_method>

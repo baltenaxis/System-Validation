@@ -276,7 +276,7 @@ init
   Plant(
     lambda sid:SluiceId . false,             % in_open
     lambda sid:SluiceId . false,             % out_open
-    lambda sid:SluiceId . Vac,               % mode
+    lambda sid:SluiceId . Atm,               % mode
 
     lambda sid:SluiceId . false,             % buf_occ
     lambda sid:SluiceId . none,              % buf_w

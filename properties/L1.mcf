@@ -1,2 +1,3 @@
+% L1 - End-to-End Progress (CORRECT VERSION)
 forall i:Nat. val(i < NUM_WAFERS) =>
-  [ (!wafer_entered_system(w(i)))* . (!end_projection(w(i)))* . wafer_output(w(i)) ] false
+  [true* . wafer_entered_system(w(i))] mu X. (<true>X || <wafer_output(w(i))>true)
