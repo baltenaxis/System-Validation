@@ -1,3 +1,4 @@
-% S4b - No transfer through closed inner door  
-% Check after closing door, must open before transfer
-[true* . close_inner(s(0)) . (!open_inner(s(0)))* . transfer_out(w(0), s(0))]false
+% S4b - No transfer through closed inner door
+% Must have open_inner before any transfer_out
+forall sid:SluiceId, i:Nat. val(validSluice(sid) && i < NUM_WAFERS) =>
+  [(!open_inner(sid))* . transfer_out(w(i), sid)]false
