@@ -1,0 +1,3 @@
+forall i:Nat, j:Nat. val(i < NUM_WAFERS && j < NUM_WAFERS && i != j) =>
+  [true*.  load_stage(w(i)) . (!unload_stage(w(i)))* . load_stage(w(j)) ] false
+% Description: "Stage exclusivity"

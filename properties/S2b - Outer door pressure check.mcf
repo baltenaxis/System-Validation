@@ -1,0 +1,3 @@
+% S2b - Outer door pressure check
+%Check that after venting/pumping, must reach Atm before opening outer door
+[true* . start_vent(s(0)) . (!atmosphere_achieved(s(0)))* . open_outer(s(0))]false

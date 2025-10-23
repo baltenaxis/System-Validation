@@ -1,0 +1,2 @@
+% S5 - Unique location constraint
+[true* . place(w(0), waiting) . (!pick(w(0), waiting))* . place(w(0), stage)]false

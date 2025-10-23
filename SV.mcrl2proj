@@ -1,6 +1,40 @@
 <root>
  <spec>SV_spec.mcrl2</spec>
- <properties/>
+ <properties>
+  <property>L1</property>
+  <property>Output checking</property>
+  <property>door closing</property>
+  <property>Wafer completion possibility</property>
+  <property>Wafer can complete full flow</property>
+  <property>Correct Ordering </property>
+  <property>Processing happens between entry and output</property>
+  <property>All wafers can complete </property>
+  <property>Can pick from input FOUP</property>
+  <property>Can place to output rack</property>
+  <property>Can distribute wafers across sluices</property>
+  <property>Both doors never open simultaneously</property>
+  <property>Stage processes one wafer at a time</property>
+  <property>Alarm blocks critical operations</property>
+  <property>System can recover from alarm</property>
+  <property>pumping requires sealed chamber</property>
+  <property>outer door stuck test</property>
+  <property>Can pump empty sluice</property>
+  <property>Cannot open inner door without vacuum_achieved</property>
+  <property>S2b - Outer door pressure check</property>
+  <property>S3 - No overfill waiting area</property>
+  <property>S4a - No transfer through closed outer door</property>
+  <property>S4b - No transfer through closed inner door</property>
+  <property>S5 - Unique location constraint</property>
+  <property>S6 - Sluice capacity constraint</property>
+  <property>S8 - Robot collision avoidance</property>
+  <property>S9a - Pump needs inner door closed</property>
+  <property>S9b - Pump needs outer door closed</property>
+  <property>S9c - No inner door during pump</property>
+  <property>S9d - No outer door during pump</property>
+  <property>S11a - Alarm stops outer door</property>
+  <property>S11c - Alarm stops pumping</property>
+  <property>Deadlock freedom</property>
+ </properties>
  <jittyc>false</jittyc>
  <linearisation_method>regular</linearisation_method>
  <enumeration_limit>0</enumeration_limit>

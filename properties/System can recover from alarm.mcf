@@ -1,0 +1,2 @@
+<true*. trigger_alarm(s(0)) . true* . restart_system(s(0))> true
+% Description: "Alarm recovery possible"

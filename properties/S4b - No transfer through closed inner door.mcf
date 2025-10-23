@@ -1,0 +1,4 @@
+% S4b - No transfer through closed inner door
+% Must have open_inner before any sluice_to_chamber
+forall sid:SluiceId, i:Nat. val(validSluice(sid) && i < NUM_WAFERS) =>
+  [(!open_inner(sid))* . sluice_to_chamber(w(i), sid)]false

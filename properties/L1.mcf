@@ -1,0 +1,1 @@
+forall i:Nat. val(i < NUM_WAFERS) => [true* . wafer_entered_system(w(i))] mu X. (<wafer_output(w(i))>true || exists sid:SluiceId. val(validSluice(sid)) && <trigger_alarm(sid)>true || <true>X)

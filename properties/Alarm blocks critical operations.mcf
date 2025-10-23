@@ -1,0 +1,4 @@
+  % AS-1: Alarm blocks critical operations (simplified - checks one action)
+forall sid:SluiceId. val(validSluice(sid)) =>
+  [true*. trigger_alarm(sid) . (!restart_system(sid))* . open_inner(sid)] false
+% Description: "Alarm prevents door opening"

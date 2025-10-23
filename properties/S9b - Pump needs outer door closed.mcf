@@ -1,0 +1,2 @@
+% S9b - After opening outer door, must close before pumping  
+[true* . open_outer(s(0)) . (!close_outer(s(0)))* . start_pump_down(s(0))]false

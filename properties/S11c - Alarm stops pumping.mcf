@@ -1,0 +1,2 @@
+% S11c - Alarm stops pumping
+[true* . trigger_alarm(s(0)) . (!restart_system(s(0)))* . start_pump_down(s(0))]false

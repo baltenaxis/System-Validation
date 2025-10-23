@@ -1,0 +1,3 @@
+forall i:Nat. val(i < NUM_WAFERS) =>
+  [ (!wafer_entered_system(w(i)))* . wafer_output(w(i)) ] false
+% Description: "Output requires prior entry"

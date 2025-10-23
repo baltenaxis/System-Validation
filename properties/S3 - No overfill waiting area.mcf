@@ -1,0 +1,9 @@
+% S3 - No overfill waiting area (CORRECTED - use communication actions)
+
+[true* . place(w(0), waiting) . 
+ (!(load_stage(w(0)) || chamber_to_sluice(w(0), s(0)) || chamber_to_sluice(w(0), s(1))))* . 
+ place(w(1), waiting)]false
+&&
+[true* . place(w(1), waiting) . 
+ (!(load_stage(w(1)) || chamber_to_sluice(w(1), s(0)) || chamber_to_sluice(w(1), s(1))))* . 
+ place(w(0), waiting)]false

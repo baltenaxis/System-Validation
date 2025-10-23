@@ -1,0 +1,2 @@
+% S11a - Alarm stops outer door
+[true* . trigger_alarm(s(0)) . (!restart_system(s(0)))* . open_outer(s(0))]false
