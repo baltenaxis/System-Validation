@@ -32,7 +32,6 @@
   <property>S9c - No inner door during pump</property>
   <property>S9d - No outer door during pump</property>
   <property>S11a - Alarm stops outer door</property>
-  <property>S11b - Alarm stops stage</property>
   <property>S11c - Alarm stops pumping</property>
   <property>Deadlock freedom</property>
  </properties>

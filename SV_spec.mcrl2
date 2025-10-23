@@ -1,19 +1,17 @@
 % ==============================================================
-% ASML_3component_parallel_FIXED_v2.mcrl2
-% Fixes: 
-%   1. Action naming conflict (transfer_in/out used for two purposes)
-%   2. Door safety properties S4a, S4b
-%   3. Processing requirement before output
+% ASML_3component_LOCAL_SLUICE_ALARM.mcrl2
+% Local alarm per sluice - triggered by vacuum_fault only
 % ==============================================================
-
 map
   NUM_WAFERS  : Nat;  NUM_SLUICES : Nat;
   NUM_FOUP_IN : Nat;  NUM_FOUP_OUT: Nat;
+  MAX_WAITING_CAPACITY : Nat;  
 eqn
   NUM_WAFERS   = 2;
   NUM_SLUICES  = 2;
   NUM_FOUP_IN  = 2;
   NUM_FOUP_OUT = 2;
+  MAX_WAITING_CAPACITY = 1;  
 
 sort
   SluiceId = struct s(n:Nat);
@@ -42,7 +40,7 @@ act
   % Sluice-Outside interface (use outer door)
   transfer_in, transfer_out : Wafer # SluiceId;
   
-  % Sluice-Inside interface (use inner door) - RENAMED to avoid conflict
+  % Sluice-Inside interface (use inner door)
   sluice_to_chamber, chamber_to_sluice : Wafer # SluiceId;
   
   pick, place : Wafer # Loc;
@@ -51,7 +49,8 @@ act
 
   wafer_entered_system, wafer_output : Wafer;
 
-  trigger_alarm, restart_system;
+  % Local sluice alarm actions
+  trigger_alarm, restart_system : SluiceId;
 
   % Communication actions (internal)
   or_place_ext, sl_accept_ext : Wafer # SluiceId;
@@ -61,9 +60,6 @@ act
   sl_transfer_to_inside, inside_accept_from_sluice : Wafer # SluiceId;
   % Renamed: inside->sluice communication
   inside_transfer_to_sluice, sluice_accept_from_inside : Wafer # SluiceId;
-
-  alarm_trigger_internal, alarm_receive_trigger;
-  alarm_restart_internal, alarm_receive_restart;
 
   c_place_ext, c_pick_ext : Wafer # SluiceId;
 
@@ -94,33 +90,26 @@ eqn
 % ==============================================================
 proc OutsideRobotController(
   phase    : Wafer -> Nat,
-  out_occ  : Nat   -> Bool,
-  alarm    : Bool
+  out_occ  : Nat   -> Bool
 ) =
   sum i:Nat, sid:SluiceId . (
       i < NUM_WAFERS && validInCell(i) && validSluice(sid) && 
-      !alarm && phase(w(i)) == 0
+      phase(w(i)) == 0
     ) -> pick(w(i), in_cell(i)) . wafer_entered_system(w(i)) . 
          or_place_ext(w(i), sid) .
-         OutsideRobotController(phase[w(i)->1], out_occ, alarm)
+         OutsideRobotController(phase[w(i)->1], out_occ)
 +
   sum sid:SluiceId, i:Nat, oc:Nat . (
       validSluice(sid) && i < NUM_WAFERS && validWafer(w(i)) &&
-      validOutCell(oc) && !out_occ(oc) && !alarm &&
-      phase(w(i)) >= 1  % Wafer must have entered system
+      validOutCell(oc) && !out_occ(oc) &&
+      phase(w(i)) >= 1
     ) -> or_pick_ext(w(i), sid) . 
          place(w(i), out_cell(oc)) . wafer_output(w(i)) .
-         OutsideRobotController(phase[w(i)->2], out_occ[oc->true], alarm)
-+
-  alarm_receive_trigger . 
-    OutsideRobotController(phase, out_occ, true)
-+
-  alarm_receive_restart .
-    OutsideRobotController(phase, out_occ, false)
+         OutsideRobotController(phase[w(i)->2], out_occ[oc->true])
 ;
 
 % ==============================================================
-% COMPONENT 2: Sluice Controller (Region 2)
+% COMPONENT 2: Sluice Controller (Region 2) - WITH LOCAL ALARM
 % ==============================================================
 proc SluiceController(
   sid       : SluiceId,
@@ -131,7 +120,7 @@ proc SluiceController(
   buf_w     : MOptWafer,
   ext_port_w: MOptWafer,
   ext_is_output: Bool,
-  from_inside: Bool,  % NEW: tracks if wafer came from inside chamber
+  from_inside: Bool,
   alarm     : Bool
 ) =
   % Open outer door (only when in atmosphere and doors closed)
@@ -140,7 +129,7 @@ proc SluiceController(
        SluiceController(sid, in_open, true, mode, buf_occ, buf_w, ext_port_w, ext_is_output, from_inside, alarm)
 +
   % Close outer door
-  (out_open) 
+  (out_open && !alarm) 
     -> close_outer(sid) .
        SluiceController(sid, in_open, false, mode, buf_occ, buf_w, ext_port_w, ext_is_output, from_inside, alarm)
 +
@@ -150,7 +139,7 @@ proc SluiceController(
        SluiceController(sid, true, out_open, mode, buf_occ, buf_w, ext_port_w, ext_is_output, from_inside, alarm)
 +
   % Close inner door
-  (in_open) 
+  (in_open && !alarm) 
     -> close_inner(sid) .
        SluiceController(sid, false, out_open, mode, buf_occ, buf_w, ext_port_w, ext_is_output, from_inside, alarm)
 +
@@ -160,53 +149,49 @@ proc SluiceController(
        SluiceController(sid, in_open, out_open, Pumping, buf_occ, buf_w, ext_port_w, ext_is_output, from_inside, alarm)
 +
   % Achieve vacuum
-  (mode == Pumping) 
+  (mode == Pumping && !alarm) 
     -> vacuum_achieved(sid) .
        SluiceController(sid, in_open, out_open, Vac, buf_occ, buf_w, ext_port_w, ext_is_output, from_inside, alarm)
 +
   % Start venting
-  (!in_open && !out_open && mode == Vac) 
+  (!in_open && !out_open && mode == Vac && !alarm) 
     -> start_vent(sid) .
        SluiceController(sid, in_open, out_open, Venting, buf_occ, buf_w, ext_port_w, ext_is_output, from_inside, alarm)
 +
   % Achieve atmosphere
-  (mode == Venting) 
+  (mode == Venting && !alarm) 
     -> atmosphere_achieved(sid) .
        SluiceController(sid, in_open, out_open, Atm, buf_occ, buf_w, ext_port_w, ext_is_output, from_inside, alarm)
 +
-  % Vacuum fault during pumping
+  % Vacuum fault - triggers LOCAL alarm for this sluice
   (mode == Pumping && !alarm)
-    -> vacuum_fault(sid) . 
-       SluiceController(sid, in_open, out_open, Atm, buf_occ, buf_w, ext_port_w, ext_is_output, from_inside, alarm)
+    -> vacuum_fault(sid) . trigger_alarm(sid) .
+       SluiceController(sid, in_open, out_open, Atm, buf_occ, buf_w, ext_port_w, ext_is_output, from_inside, true)
 +
   % ============ SLUICE-OUTSIDE INTERFACE (outer door) ============
   
   % Accept wafer from outside robot to external port
   sum i:Nat . (
       i < NUM_WAFERS && validWafer(w(i)) &&
-      out_open && !in_open && mode == Atm && ext_port_w == none
+      out_open && !in_open && mode == Atm && ext_port_w == none && !alarm
     ) -> sl_accept_ext(w(i), sid) .
          SluiceController(sid, in_open, out_open, mode, buf_occ, buf_w, 
                          some(w(i)), false, from_inside, alarm)
 +
   % Transfer from external port INTO sluice buffer (transfer_in)
-  % This is the observable transfer_in that requires outer door open
-  % Mark from_inside=false since wafer came from outside
   sum i:Nat . (
       i < NUM_WAFERS && validWafer(w(i)) &&
       out_open && !in_open && mode == Atm && !buf_occ &&
-      ext_port_w == some(w(i))
+      ext_port_w == some(w(i)) && !alarm
     ) -> transfer_in(w(i), sid) . place(w(i), sl_in(sid)) .
          SluiceController(sid, in_open, out_open, mode, true, some(w(i)), 
                          none, false, false, alarm)
 +
   % Transfer from sluice buffer OUT to external port (transfer_out)
-  % This is the observable transfer_out that requires outer door open
-  % ONLY ALLOW if from_inside=true (wafer must have been processed)
   sum i:Nat . (
       i < NUM_WAFERS && validWafer(w(i)) &&
       out_open && !in_open && mode == Atm && buf_occ &&
-      buf_w == some(w(i)) && ext_port_w == none && from_inside
+      buf_w == some(w(i)) && ext_port_w == none && from_inside && !alarm
     ) -> transfer_out(w(i), sid) . place(w(i), sl_out(sid)) .
          SluiceController(sid, in_open, out_open, mode, false, none, 
                          some(w(i)), true, false, alarm)
@@ -215,7 +200,7 @@ proc SluiceController(
   sum i:Nat . (
       i < NUM_WAFERS && validWafer(w(i)) &&
       out_open && !in_open && mode == Atm &&
-      ext_port_w == some(w(i)) && ext_is_output
+      ext_port_w == some(w(i)) && ext_is_output && !alarm
     ) -> sl_release_ext(w(i), sid) .
          SluiceController(sid, in_open, out_open, mode, buf_occ, buf_w, 
                          none, false, from_inside, alarm)
@@ -223,7 +208,6 @@ proc SluiceController(
   % ============ SLUICE-INSIDE INTERFACE (inner door) ============
   
   % Transfer from sluice buffer to inside chamber (sluice_to_chamber)
-  % Requires inner door open - this will become observable sluice_to_chamber
   sum i:Nat . (
       i < NUM_WAFERS && validWafer(w(i)) &&
       in_open && !out_open && mode == Vac && buf_occ && !alarm &&
@@ -233,8 +217,6 @@ proc SluiceController(
                          ext_port_w, ext_is_output, false, alarm)
 +
   % Accept wafer from inside chamber to sluice buffer (chamber_to_sluice)
-  % Requires inner door open - this will become observable chamber_to_sluice
-  % Mark from_inside=true since wafer came from inside (processed)
   sum i:Nat . (
       i < NUM_WAFERS && validWafer(w(i)) &&
       in_open && !out_open && mode == Vac && !buf_occ && !alarm
@@ -242,63 +224,50 @@ proc SluiceController(
          SluiceController(sid, in_open, out_open, mode, true, some(w(i)), 
                          ext_port_w, ext_is_output, true, alarm)
 +
-  % Alarm handling
-  alarm_receive_trigger . 
-    SluiceController(sid, in_open, out_open, mode, buf_occ, buf_w, 
-                    ext_port_w, ext_is_output, from_inside, true)
-+
-  alarm_receive_restart .
+  % Restart from alarm state
+  (alarm) -> restart_system(sid) .
     SluiceController(sid, in_open, out_open, mode, buf_occ, buf_w, 
                     ext_port_w, ext_is_output, from_inside, false)
 ;
 
 % ==============================================================
-% COMPONENT 3: Inside Controller (Region 3 + Alarm)
+% COMPONENT 3: Inside Controller (Region 3) - NO ALARM
 % ==============================================================
 proc InsideController(
   is_waiting: Wafer -> Bool,
   stage_busy: Bool,
   on_stage  : MOptWafer,
   processed : Wafer -> Bool,
-  alarm     : Bool
+  waiting_count: Nat
 ) =
-  % Trigger alarm
-  (!alarm) 
-    -> alarm_trigger_internal .
-       InsideController(is_waiting, stage_busy, on_stage, processed, true)
-+
-  % Restart from alarm
-  (alarm) 
-    -> alarm_restart_internal .
-       InsideController(is_waiting, stage_busy, on_stage, processed, false)
-+
   % Accept wafer from sluice into waiting area
   sum sid:SluiceId, i:Nat . (
       validSluice(sid) && i < NUM_WAFERS && validWafer(w(i)) &&
-      !alarm && !is_waiting(w(i))
+      !is_waiting(w(i)) && waiting_count < MAX_WAITING_CAPACITY
     ) -> inside_accept_from_sluice(w(i), sid) . place(w(i), waiting) .
-         InsideController(is_waiting[w(i)->true], stage_busy, on_stage, processed, alarm)
+         InsideController(is_waiting[w(i)->true], stage_busy, on_stage, processed, waiting_count + 1)
 +
   % Transfer processed wafer back to sluice
-  % ONLY AFTER PROCESSING - this enforces the projection requirement
   sum sid:SluiceId, i:Nat . (
       validSluice(sid) && i < NUM_WAFERS && validWafer(w(i)) &&
-      !alarm && is_waiting(w(i)) && processed(w(i))
+      is_waiting(w(i)) && processed(w(i)) && waiting_count > 0
     ) -> inside_transfer_to_sluice(w(i), sid) . place(w(i), sl_in(sid)) .
-         InsideController(is_waiting[w(i)->false], stage_busy, on_stage, processed, alarm)
+         InsideController(is_waiting[w(i)->false], stage_busy, on_stage, processed, 
+                         if(waiting_count > 0, Int2Nat(waiting_count - 1), 0))
 +
-  % Load, process, and mark as processed - all in one atomic sequence
+  % Load, process, and mark as processed
   sum i:Nat . (
-      i < NUM_WAFERS && is_waiting(w(i)) && !stage_busy && !alarm && !processed(w(i))
+      i < NUM_WAFERS && is_waiting(w(i)) && !stage_busy && !processed(w(i)) && waiting_count > 0
     ) -> load_stage(w(i)) . start_projection(w(i)) . end_projection(w(i)) .
          InsideController(is_waiting[w(i)->false], true, some(w(i)), 
-                         processed[w(i)->true], alarm)
+                         processed[w(i)->true], 
+                         if(waiting_count > 0, Int2Nat(waiting_count - 1), 0))
 +
   % Unload from stage back to waiting
   sum i:Nat . (
-      i < NUM_WAFERS && on_stage == some(w(i)) && !alarm
+      i < NUM_WAFERS && on_stage == some(w(i)) && waiting_count < MAX_WAITING_CAPACITY
     ) -> unload_stage(w(i)) . place(w(i), waiting) .
-         InsideController(is_waiting[w(i)->true], false, none, processed, alarm)
+         InsideController(is_waiting[w(i)->true], false, none, processed, waiting_count + 1)
 ;
 
 % ==============================================================
@@ -309,8 +278,8 @@ init
     open_inner, close_inner, open_outer, close_outer,
     start_pump_down, vacuum_achieved, start_vent, atmosphere_achieved,
     vacuum_fault,
-    transfer_in, transfer_out,           % Sluice-Outside (outer door)
-    sluice_to_chamber, chamber_to_sluice, % Sluice-Inside (inner door)
+    transfer_in, transfer_out,
+    sluice_to_chamber, chamber_to_sluice,
     pick, place,
     load_stage, start_projection, end_projection, unload_stage,
     wafer_entered_system, wafer_output,
@@ -322,18 +291,13 @@ init
     or_place_ext | sl_accept_ext -> c_place_ext,
     or_pick_ext | sl_release_ext -> c_pick_ext,
     
-    % Sluice buffer <-> Inside chamber (RENAMED to avoid conflict)
+    % Sluice buffer <-> Inside chamber
     sl_transfer_to_inside | inside_accept_from_sluice -> sluice_to_chamber,
-    inside_transfer_to_sluice | sluice_accept_from_inside -> chamber_to_sluice,
-    
-    % Alarm coordination
-    alarm_trigger_internal | alarm_receive_trigger -> trigger_alarm,
-    alarm_restart_internal | alarm_receive_restart -> restart_system
+    inside_transfer_to_sluice | sluice_accept_from_inside -> chamber_to_sluice
   },
     OutsideRobotController(
       lambda wf:Wafer . 0,
-      lambda k:Nat    . false,
-      false
+      lambda k:Nat    . false
     )
     ||
     SluiceController(
@@ -349,6 +313,6 @@ init
       false,
       none,
       lambda wf:Wafer . false,
-      false
+      0  
     )
   ));

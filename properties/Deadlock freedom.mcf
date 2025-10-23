@@ -1,2 +1,1 @@
-% Deadlock freedom
-[true*]<true>true
+[true*](<true>true || <restart_system(s(0))>true || <restart_system(s(1))>true)
