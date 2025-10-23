@@ -1,0 +1,2 @@
+forall sid:SluiceId. val(validSluice(sid)) => 
+    [true*.vacuum_fault(sid)] <true*.trigger_alarm>true
