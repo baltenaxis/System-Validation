@@ -35,6 +35,7 @@
   <property>S11b - Alarm stops stage</property>
   <property>S11c - Alarm stops pumping</property>
   <property>Deadlock freedom</property>
+  <property>Vacuum fault must trigger alarm immediately</property>
  </properties>
  <jittyc>false</jittyc>
  <linearisation_method>regular</linearisation_method>

@@ -1,9 +1,10 @@
 % ==============================================================
-% ASML_3component_parallel_FIXED_v2.mcrl2
+% ASML_3component_parallel_FIXED_v3_alarm_fix.mcrl2
 % Fixes: 
 %   1. Action naming conflict (transfer_in/out used for two purposes)
 %   2. Door safety properties S4a, S4b
 %   3. Processing requirement before output
+%   4. ALARM SYNCHRONIZATION: Make alarm trigger/restart atomic across all components
 % ==============================================================
 
 map
@@ -51,6 +52,7 @@ act
 
   wafer_entered_system, wafer_output : Wafer;
 
+  % ALARM ACTIONS - atomic broadcast without parameters
   trigger_alarm, restart_system;
 
   % Communication actions (internal)
@@ -62,8 +64,13 @@ act
   % Renamed: inside->sluice communication
   inside_transfer_to_sluice, sluice_accept_from_inside : Wafer # SluiceId;
 
-  alarm_trigger_internal, alarm_receive_trigger;
-  alarm_restart_internal, alarm_receive_restart;
+  % NEW: Atomic alarm synchronization actions (no parameters for clean synchronization)
+  % Each component has its own participation action
+  alarm_trigger_from_inside, alarm_trigger_to_outside, 
+  alarm_trigger_to_sluice0, alarm_trigger_to_sluice1;
+  
+  alarm_restart_from_inside, alarm_restart_to_outside,
+  alarm_restart_to_sluice0, alarm_restart_to_sluice1;
 
   c_place_ext, c_pick_ext : Wafer # SluiceId;
 
@@ -112,10 +119,14 @@ proc OutsideRobotController(
          place(w(i), out_cell(oc)) . wafer_output(w(i)) .
          OutsideRobotController(phase[w(i)->2], out_occ[oc->true], alarm)
 +
-  alarm_receive_trigger . 
+  % ALARM: Participate in atomic trigger (always ready)
+  (!alarm) ->
+    alarm_trigger_to_outside . 
     OutsideRobotController(phase, out_occ, true)
 +
-  alarm_receive_restart .
+  % RESTART: Participate in atomic restart (always ready)
+  (alarm) ->
+    alarm_restart_to_outside .
     OutsideRobotController(phase, out_occ, false)
 ;
 
@@ -131,7 +142,7 @@ proc SluiceController(
   buf_w     : MOptWafer,
   ext_port_w: MOptWafer,
   ext_is_output: Bool,
-  from_inside: Bool,  % NEW: tracks if wafer came from inside chamber
+  from_inside: Bool,
   alarm     : Bool
 ) =
   % Open outer door (only when in atmosphere and doors closed)
@@ -174,7 +185,7 @@ proc SluiceController(
     -> atmosphere_achieved(sid) .
        SluiceController(sid, in_open, out_open, Atm, buf_occ, buf_w, ext_port_w, ext_is_output, from_inside, alarm)
 +
-  % Vacuum fault during pumping
+  % Vacuum fault during pumping - triggers alarm
   (mode == Pumping && !alarm)
     -> vacuum_fault(sid) . 
        SluiceController(sid, in_open, out_open, Atm, buf_occ, buf_w, ext_port_w, ext_is_output, from_inside, alarm)
@@ -190,8 +201,6 @@ proc SluiceController(
                          some(w(i)), false, from_inside, alarm)
 +
   % Transfer from external port INTO sluice buffer (transfer_in)
-  % This is the observable transfer_in that requires outer door open
-  % Mark from_inside=false since wafer came from outside
   sum i:Nat . (
       i < NUM_WAFERS && validWafer(w(i)) &&
       out_open && !in_open && mode == Atm && !buf_occ &&
@@ -201,7 +210,6 @@ proc SluiceController(
                          none, false, false, alarm)
 +
   % Transfer from sluice buffer OUT to external port (transfer_out)
-  % This is the observable transfer_out that requires outer door open
   % ONLY ALLOW if from_inside=true (wafer must have been processed)
   sum i:Nat . (
       i < NUM_WAFERS && validWafer(w(i)) &&
@@ -223,7 +231,6 @@ proc SluiceController(
   % ============ SLUICE-INSIDE INTERFACE (inner door) ============
   
   % Transfer from sluice buffer to inside chamber (sluice_to_chamber)
-  % Requires inner door open - this will become observable sluice_to_chamber
   sum i:Nat . (
       i < NUM_WAFERS && validWafer(w(i)) &&
       in_open && !out_open && mode == Vac && buf_occ && !alarm &&
@@ -233,8 +240,6 @@ proc SluiceController(
                          ext_port_w, ext_is_output, false, alarm)
 +
   % Accept wafer from inside chamber to sluice buffer (chamber_to_sluice)
-  % Requires inner door open - this will become observable chamber_to_sluice
-  % Mark from_inside=true since wafer came from inside (processed)
   sum i:Nat . (
       i < NUM_WAFERS && validWafer(w(i)) &&
       in_open && !out_open && mode == Vac && !buf_occ && !alarm
@@ -242,12 +247,26 @@ proc SluiceController(
          SluiceController(sid, in_open, out_open, mode, true, some(w(i)), 
                          ext_port_w, ext_is_output, true, alarm)
 +
-  % Alarm handling
-  alarm_receive_trigger . 
+  % ALARM: Participate in atomic trigger (always ready)
+  % Sluice 0 uses alarm_trigger_to_sluice0, Sluice 1 uses alarm_trigger_to_sluice1
+  (sid == s(0) && !alarm) ->
+    alarm_trigger_to_sluice0 . 
     SluiceController(sid, in_open, out_open, mode, buf_occ, buf_w, 
                     ext_port_w, ext_is_output, from_inside, true)
 +
-  alarm_receive_restart .
+  (sid == s(1) && !alarm) ->
+    alarm_trigger_to_sluice1 . 
+    SluiceController(sid, in_open, out_open, mode, buf_occ, buf_w, 
+                    ext_port_w, ext_is_output, from_inside, true)
++
+  % RESTART: Participate in atomic restart (always ready)
+  (sid == s(0) && alarm) ->
+    alarm_restart_to_sluice0 .
+    SluiceController(sid, in_open, out_open, mode, buf_occ, buf_w, 
+                    ext_port_w, ext_is_output, from_inside, false)
++
+  (sid == s(1) && alarm) ->
+    alarm_restart_to_sluice1 .
     SluiceController(sid, in_open, out_open, mode, buf_occ, buf_w, 
                     ext_port_w, ext_is_output, from_inside, false)
 ;
@@ -262,14 +281,14 @@ proc InsideController(
   processed : Wafer -> Bool,
   alarm     : Bool
 ) =
-  % Trigger alarm
+  % Trigger alarm - now initiates atomic broadcast
   (!alarm) 
-    -> alarm_trigger_internal .
+    -> alarm_trigger_from_inside .
        InsideController(is_waiting, stage_busy, on_stage, processed, true)
 +
-  % Restart from alarm
+  % Restart from alarm - now initiates atomic broadcast
   (alarm) 
-    -> alarm_restart_internal .
+    -> alarm_restart_from_inside .
        InsideController(is_waiting, stage_busy, on_stage, processed, false)
 +
   % Accept wafer from sluice into waiting area
@@ -280,14 +299,13 @@ proc InsideController(
          InsideController(is_waiting[w(i)->true], stage_busy, on_stage, processed, alarm)
 +
   % Transfer processed wafer back to sluice
-  % ONLY AFTER PROCESSING - this enforces the projection requirement
   sum sid:SluiceId, i:Nat . (
       validSluice(sid) && i < NUM_WAFERS && validWafer(w(i)) &&
       !alarm && is_waiting(w(i)) && processed(w(i))
     ) -> inside_transfer_to_sluice(w(i), sid) . place(w(i), sl_in(sid)) .
          InsideController(is_waiting[w(i)->false], stage_busy, on_stage, processed, alarm)
 +
-  % Load, process, and mark as processed - all in one atomic sequence
+  % Load, process, and mark as processed
   sum i:Nat . (
       i < NUM_WAFERS && is_waiting(w(i)) && !stage_busy && !alarm && !processed(w(i))
     ) -> load_stage(w(i)) . start_projection(w(i)) . end_projection(w(i)) .
@@ -309,8 +327,8 @@ init
     open_inner, close_inner, open_outer, close_outer,
     start_pump_down, vacuum_achieved, start_vent, atmosphere_achieved,
     vacuum_fault,
-    transfer_in, transfer_out,           % Sluice-Outside (outer door)
-    sluice_to_chamber, chamber_to_sluice, % Sluice-Inside (inner door)
+    transfer_in, transfer_out,
+    sluice_to_chamber, chamber_to_sluice,
     pick, place,
     load_stage, start_projection, end_projection, unload_stage,
     wafer_entered_system, wafer_output,
@@ -322,13 +340,17 @@ init
     or_place_ext | sl_accept_ext -> c_place_ext,
     or_pick_ext | sl_release_ext -> c_pick_ext,
     
-    % Sluice buffer <-> Inside chamber (RENAMED to avoid conflict)
+    % Sluice buffer <-> Inside chamber
     sl_transfer_to_inside | inside_accept_from_sluice -> sluice_to_chamber,
     inside_transfer_to_sluice | sluice_accept_from_inside -> chamber_to_sluice,
     
-    % Alarm coordination
-    alarm_trigger_internal | alarm_receive_trigger -> trigger_alarm,
-    alarm_restart_internal | alarm_receive_restart -> restart_system
+    % ATOMIC ALARM SYNCHRONIZATION (4-way: inside + outside + sluice0 + sluice1)
+    alarm_trigger_from_inside | alarm_trigger_to_outside | 
+    alarm_trigger_to_sluice0 | alarm_trigger_to_sluice1 -> trigger_alarm,
+    
+    % All components must participate simultaneously for restart
+    alarm_restart_from_inside | alarm_restart_to_outside |
+    alarm_restart_to_sluice0 | alarm_restart_to_sluice1 -> restart_system
   },
     OutsideRobotController(
       lambda wf:Wafer . 0,
