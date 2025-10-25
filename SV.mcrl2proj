@@ -1,39 +1,18 @@
 <root>
  <spec>SV_spec.mcrl2</spec>
  <properties>
-  <property>L1</property>
-  <property>Output checking</property>
-  <property>door closing</property>
-  <property>Wafer completion possibility</property>
-  <property>Wafer can complete full flow</property>
-  <property>Correct Ordering </property>
-  <property>Processing happens between entry and output</property>
-  <property>All wafers can complete </property>
-  <property>Can pick from input FOUP</property>
-  <property>Can place to output rack</property>
-  <property>Can distribute wafers across sluices</property>
-  <property>Both doors never open simultaneously</property>
-  <property>Stage processes one wafer at a time</property>
-  <property>Alarm blocks critical operations</property>
-  <property>System can recover from alarm</property>
-  <property>pumping requires sealed chamber</property>
-  <property>outer door stuck test</property>
-  <property>Can pump empty sluice</property>
-  <property>Cannot open inner door without vacuum_achieved</property>
-  <property>S2b - Outer door pressure check</property>
-  <property>S3 - No overfill waiting area</property>
-  <property>S4a - No transfer through closed outer door</property>
-  <property>S4b - No transfer through closed inner door</property>
-  <property>S5 - Unique location constraint</property>
-  <property>S6 - Sluice capacity constraint</property>
-  <property>S8 - Robot collision avoidance</property>
-  <property>S9a - Pump needs inner door closed</property>
-  <property>S9b - Pump needs outer door closed</property>
-  <property>S9c - No inner door during pump</property>
-  <property>S9d - No outer door during pump</property>
-  <property>S11a - Alarm stops outer door</property>
-  <property>S11c - Alarm stops pumping</property>
-  <property>Deadlock freedom</property>
+  <property>S2b_outer_door_pressure_check</property>
+  <property>S2a_inner_door_vacuum_check</property>
+  <property>S3_no_overfill_waiting_area</property>
+  <property>S4a_outer_door_transfer_check</property>
+  <property>S4b_inner_door_transfer_check</property>
+  <property>S5_sluice_capacity_constraint</property>
+  <property>S6_stage_processes_one_wafer</property>
+  <property>S7a_pumping_sealed_chamber</property>
+  <property>S7b_no_inner_door_during_pump</property>
+  <property>S8_input_foup_collision_avoidance</property>
+  <property>S9a_correct_ordering</property>
+  <property>S9b_processing_between_entry_output</property>
  </properties>
  <jittyc>false</jittyc>
  <linearisation_method>regular</linearisation_method>
